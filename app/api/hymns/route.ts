@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '../../../lib/firebaseAdmin';
 
-const hymnsCollection = adminDb.collection('hymns');
+const hymnsCollection = adminDb?.collection('hymns');
 
 export async function GET() {
   try {
+    if (!hymnsCollection) {
+      return NextResponse.json({ error: 'Firebase not configured' }, { status: 500 });
+    }
     const snapshot = await hymnsCollection.orderBy('number').get();
     const hymns = snapshot.docs.map(doc => ({
       id: doc.id,
@@ -18,6 +21,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    if (!hymnsCollection) {
+      return NextResponse.json({ error: 'Firebase not configured' }, { status: 500 });
+    }
     const payload = await request.json();
     const docRef = await hymnsCollection.add({
       ...payload,

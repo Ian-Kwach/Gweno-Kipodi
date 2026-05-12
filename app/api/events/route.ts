@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '../../../lib/firebaseAdmin';
 
-const eventsCollection = adminDb.collection('events');
+const eventsCollection = adminDb?.collection('events');
 
 export async function GET() {
   try {
+    if (!eventsCollection) {
+      return NextResponse.json({ error: 'Firebase not configured' }, { status: 500 });
+    }
     const snapshot = await eventsCollection.orderBy('date', 'desc').get();
     const events = snapshot.docs.map(doc => ({
       id: doc.id,
@@ -18,6 +21,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    if (!eventsCollection) {
+      return NextResponse.json({ error: 'Firebase not configured' }, { status: 500 });
+    }
     const payload = await request.json();
     const docRef = await eventsCollection.add({
       ...payload,

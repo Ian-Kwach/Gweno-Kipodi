@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Menu, LogOut, BarChart3, Users, FileText, Music, Calendar as CalendarIcon, Tent } from 'lucide-react';
 
@@ -69,11 +70,14 @@ const defaultInfo: SiteInfo = {
 };
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState('site-info');
   const [siteInfo, setSiteInfo] = useState(defaultInfo);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Content data
   const [hymns, setHymns] = useState<Hymn[]>([]);
@@ -97,6 +101,28 @@ export default function AdminDashboard() {
   ];
 
   useEffect(() => {
+    const storedUser = typeof window !== 'undefined' ? localStorage.getItem('gwenoAdminUser') : null;
+    if (storedUser) {
+      try {
+        setCurrentUser(JSON.parse(storedUser));
+      } catch (error) {
+        console.error('Failed to parse current user:', error);
+      }
+    }
+    setAuthChecked(true);
+  }, []);
+
+  useEffect(() => {
+    if (!authChecked) return;
+    if (!currentUser) {
+      router.push('/login');
+      return;
+    }
+    if (currentUser.role !== 'admin' && currentUser.role !== 'editor') {
+      router.push('/login');
+      return;
+    }
+
     async function loadData() {
       try {
         // Load site info
@@ -141,13 +167,13 @@ export default function AdminDashboard() {
     }
 
     loadData();
-  }, []);
+  }, [authChecked, currentUser, router]);
 
   const handleSave = async () => {
     setStatus('Saving...');
     try {
       const response = await fetch('/api/site-info', {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(siteInfo),
       });
@@ -359,6 +385,24 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('gwenoAdminUser');
+    setCurrentUser(null);
+    router.push('/login');
+  };
+
+  if (!authChecked) {
+    return (
+      <div className='min-h-screen bg-slate-900 flex items-center justify-center text-white'>
+        Checking admin login...
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return null;
+  }
+
   return (
     <div className='min-h-screen bg-slate-900 flex'>
       <motion.div
@@ -395,6 +439,7 @@ export default function AdminDashboard() {
 
         <motion.button
           whileHover={{ scale: 1.05 }}
+          onClick={handleLogout}
           className='absolute bottom-4 left-4 right-4 flex items-center gap-3 px-4 py-3 rounded-lg bg-red-600/20 text-red-400 hover:bg-red-600/30 transition'
         >
           <LogOut size={20} />

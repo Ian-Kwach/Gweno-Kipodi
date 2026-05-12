@@ -7,6 +7,9 @@ export async function PUT(
 ) {
   const { id } = await params;
   try {
+    if (!adminDb) {
+      return NextResponse.json({ error: 'Firebase not configured' }, { status: 500 });
+    }
     const payload = await request.json();
     const eventRef = adminDb.collection('events').doc(id);
     await eventRef.update({
@@ -25,6 +28,9 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
+    if (!adminDb) {
+      return NextResponse.json({ error: 'Firebase not configured' }, { status: 500 });
+    }
     await adminDb.collection('events').doc(id).delete();
     return NextResponse.json({ success: true }, { status: 200 });
   } catch {
