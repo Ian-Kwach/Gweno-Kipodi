@@ -14,6 +14,7 @@ const navItems = [
   { href: '/devotionals', label: 'Devotionals' },
   { href: '/departments', label: 'Departments' },
   { href: '/contact', label: 'Contact' },
+  { href: '/admin', label: 'Admin' },
 ];
 
 export default function GlobalHeader() {
