@@ -2,15 +2,44 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronDown, Play, Calendar, Music, Heart, Gift } from 'lucide-react';
+import { ChevronDown, Play, Calendar, Music, Heart, Gift, Tent } from 'lucide-react';
 import Link from 'next/link';
+
+interface SiteInfo {
+  siteTitle: string;
+  homepageHeadline: string;
+  homepageSubtext: string;
+}
 
 export default function Home() {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [siteInfo, setSiteInfo] = useState<SiteInfo>({
+    siteTitle: 'Gweno Kipodi SDA Church',
+    homepageHeadline: 'Welcome to Gweno Kipodi SDA Church',
+    homepageSubtext: 'A place of worship, community, and spiritual growth.',
+  });
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
     window.addEventListener('scroll', handleScroll);
+
+    async function loadSiteInfo() {
+      try {
+        const response = await fetch('/api/site-info');
+        const data = await response.json();
+        if (data?.data) {
+          setSiteInfo({
+            siteTitle: data.data.siteTitle || 'Gweno Kipodi SDA Church',
+            homepageHeadline: data.data.homepageHeadline || 'Welcome to Gweno Kipodi SDA Church',
+            homepageSubtext: data.data.homepageSubtext || 'A place of worship, community, and spiritual growth.',
+          });
+        }
+      } catch (error) {
+        console.error('Unable to load site info', error);
+      }
+    }
+
+    loadSiteInfo();
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -34,6 +63,12 @@ export default function Home() {
       href: '/events'
     },
     {
+      icon: Tent,
+      title: 'Campmeetings',
+      description: 'Join our inspiring SDA campmeetings',
+      href: '/campmeetings'
+    },
+    {
       icon: Heart,
       title: 'Prayer Requests',
       description: 'Submit your prayer needs',
@@ -41,15 +76,9 @@ export default function Home() {
     },
     {
       icon: Gift,
-      title: 'Give Online',
-      description: 'Support our ministry',
-      href: '/giving'
-    },
-    {
-      icon: Heart,
-      title: 'Prayer Requests',
-      description: 'Submit your prayer needs',
-      href: '/prayers'
+      title: 'Gallery',
+      description: 'See church life in photos and video',
+      href: '/gallery'
     },
   ];
 
@@ -65,7 +94,7 @@ export default function Home() {
             <Link href='/sermons' className='text-gray-200 hover:text-blue-400 transition'>Sermons</Link>
             <Link href='/hymns' className='text-gray-200 hover:text-blue-400 transition'>Hymns</Link>
             <Link href='/events' className='text-gray-200 hover:text-blue-400 transition'>Events</Link>
-            <Link href='/admin' className='text-gray-200 hover:text-blue-400 transition'>Admin</Link>
+            <Link href='/campmeetings' className='text-gray-200 hover:text-blue-400 transition'>Campmeetings</Link>
           </div>
         </div>
       </nav>
@@ -86,10 +115,10 @@ export default function Home() {
           className='relative z-10 text-center px-4'
         >
           <h1 className='text-5xl md:text-7xl font-bold text-white mb-6'>
-            Welcome to <span className='bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent'>Gweno Kipodi SDA Church</span>
+            {siteInfo.homepageHeadline}
           </h1>
           <p className='text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto'>
-            A place of worship, community, and spiritual growth.
+            {siteInfo.homepageSubtext}
           </p>
 
           <div className='flex flex-wrap gap-4 justify-center mb-12'>

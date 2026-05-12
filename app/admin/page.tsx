@@ -1,33 +1,297 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Menu, LogOut, Plus, Edit, Trash2, BarChart3, Users, FileText, Music, Calendar as CalendarIcon, Gift } from 'lucide-react';
+import { Menu, LogOut, BarChart3, Users, FileText, Music, Calendar as CalendarIcon, Tent } from 'lucide-react';
+
+interface Hymn {
+  id?: string;
+  number: number;
+  title: string;
+  lyrics: {
+    english: string;
+    kiswahili: string;
+    luo: string;
+  };
+  sourceUrl?: string;
+}
+
+interface Event {
+  id?: string;
+  title: string;
+  date: string;
+  time: string;
+  location: string;
+  description: string;
+  category?: string;
+}
+
+interface Campmeeting {
+  id?: string;
+  title: string;
+  location: string;
+  date: string;
+  duration: string;
+  theme: string;
+  description: string;
+  speakers: string[];
+  capacity: number;
+  registrationOpen: boolean;
+}
+
+interface SiteInfo {
+  siteTitle: string;
+  homepageHeadline: string;
+  homepageSubtext: string;
+  contactEmail: string;
+  contactPhone: string;
+  address: string;
+}
+
+const defaultInfo: SiteInfo = {
+  siteTitle: 'Gweno Kipodi SDA Church',
+  homepageHeadline: 'Welcome to Gweno Kipodi SDA Church',
+  homepageSubtext: 'A place of worship, community, and spiritual growth.',
+  contactEmail: 'info@gwenokipodichurch.org',
+  contactPhone: '+254 700 000 000',
+  address: 'Gweno Kipodi SDA Church, Kisii County, Kenya',
+};
 
 export default function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
-  const [showNewPostModal, setShowNewPostModal] = useState(false);
+  const [activeTab, setActiveTab] = useState('site-info');
+  const [siteInfo, setSiteInfo] = useState(defaultInfo);
+  const [status, setStatus] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Content data
+  const [hymns, setHymns] = useState<Hymn[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [campmeetings, setCampmeetings] = useState<Campmeeting[]>([]);
+
+  // Editing states
+  const [editingHymn, setEditingHymn] = useState<Hymn | null>(null);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [editingCampmeeting, setEditingCampmeeting] = useState<Campmeeting | null>(null);
 
   const menuItems = [
-    { id: 'overview', label: 'Overview', icon: BarChart3 },
-    { id: 'posts', label: 'Blog Posts', icon: FileText },
-    { id: 'sermons', label: 'Sermons', icon: Music },
+    { id: 'site-info', label: 'Site Info', icon: FileText },
+    { id: 'content', label: 'Content', icon: Music },
     { id: 'events', label: 'Events', icon: CalendarIcon },
-    { id: 'giving', label: 'Donations', icon: Gift },
+    { id: 'campmeetings', label: 'Campmeetings', icon: Tent },
     { id: 'users', label: 'Users', icon: Users },
+    { id: 'overview', label: 'Overview', icon: BarChart3 },
   ];
 
-  const stats = [
-    { label: 'Total Posts', value: '24', icon: FileText },
-    { label: 'Total Sermons', value: '156', icon: Music },
-    { label: 'Events', value: '12', icon: CalendarIcon },
-    { label: 'Users', value: '1,240', icon: Users },
-  ];
+  useEffect(() => {
+    async function loadData() {
+      try {
+        // Load site info
+        const siteResponse = await fetch('/api/site-info');
+        const siteData = await siteResponse.json();
+        if (siteData?.data) {
+          setSiteInfo({ ...defaultInfo, ...siteData.data });
+        }
+
+        // Load hymns
+        const hymnsResponse = await fetch('/api/hymns');
+        const hymnsData = await hymnsResponse.json();
+        if (hymnsData?.data) {
+          setHymns(hymnsData.data);
+        }
+
+        // Load events
+        const eventsResponse = await fetch('/api/events');
+        const eventsData = await eventsResponse.json();
+        if (eventsData?.data) {
+          setEvents(eventsData.data);
+        }
+
+        // Load campmeetings
+        const campmeetingsResponse = await fetch('/api/campmeetings');
+        const campmeetingsData = await campmeetingsResponse.json();
+        if (campmeetingsData?.data) {
+          setCampmeetings(campmeetingsData.data);
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, []);
+
+  const handleSave = async () => {
+    setStatus('Saving...');
+    try {
+      const response = await fetch('/api/site-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(siteInfo),
+      });
+      const result = await response.json();
+      if (result.success) {
+        setStatus('Website information updated successfully.');
+      } else {
+        setStatus('Unable to save site information.');
+      }
+    } catch (error) {
+      console.error(error);
+      setStatus('An error occurred while saving.');
+    }
+  };
+
+  const handleSaveHymn = async (hymn: Hymn) => {
+    setStatus('Saving hymn...');
+    try {
+      const method = hymn.id ? 'PUT' : 'POST';
+      const url = hymn.id ? `/api/hymns/${hymn.id}` : '/api/hymns';
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(hymn),
+      });
+      const result = await response.json();
+      if (result.success) {
+        setStatus('Hymn saved successfully.');
+        setEditingHymn(null);
+        // Reload hymns
+        const hymnsResponse = await fetch('/api/hymns');
+        const hymnsData = await hymnsResponse.json();
+        if (hymnsData?.data) {
+          setHymns(hymnsData.data);
+        }
+      } else {
+        setStatus('Unable to save hymn.');
+      }
+    } catch (error) {
+      console.error(error);
+      setStatus('An error occurred while saving.');
+    }
+  };
+
+  const handleDeleteHymn = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this hymn?')) return;
+    setStatus('Deleting hymn...');
+    try {
+      const response = await fetch(`/api/hymns/${id}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+      if (result.success) {
+        setStatus('Hymn deleted successfully.');
+        setHymns(hymns.filter(h => h.id !== id));
+      } else {
+        setStatus('Unable to delete hymn.');
+      }
+    } catch (error) {
+      console.error(error);
+      setStatus('An error occurred while deleting.');
+    }
+  };
+
+  const handleSaveEvent = async (event: Event) => {
+    setStatus('Saving event...');
+    try {
+      const method = event.id ? 'PUT' : 'POST';
+      const url = event.id ? `/api/events/${event.id}` : '/api/events';
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(event),
+      });
+      const result = await response.json();
+      if (result.success) {
+        setStatus('Event saved successfully.');
+        setEditingEvent(null);
+        // Reload events
+        const eventsResponse = await fetch('/api/events');
+        const eventsData = await eventsResponse.json();
+        if (eventsData?.data) {
+          setEvents(eventsData.data);
+        }
+      } else {
+        setStatus('Unable to save event.');
+      }
+    } catch (error) {
+      console.error(error);
+      setStatus('An error occurred while saving.');
+    }
+  };
+
+  const handleDeleteEvent = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this event?')) return;
+    setStatus('Deleting event...');
+    try {
+      const response = await fetch(`/api/events/${id}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+      if (result.success) {
+        setStatus('Event deleted successfully.');
+        setEvents(events.filter(e => e.id !== id));
+      } else {
+        setStatus('Unable to delete event.');
+      }
+    } catch (error) {
+      console.error(error);
+      setStatus('An error occurred while deleting.');
+    }
+  };
+
+  const handleSaveCampmeeting = async (campmeeting: Campmeeting) => {
+    setStatus('Saving campmeeting...');
+    try {
+      const method = campmeeting.id ? 'PUT' : 'POST';
+      const url = campmeeting.id ? `/api/campmeetings/${campmeeting.id}` : '/api/campmeetings';
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(campmeeting),
+      });
+      const result = await response.json();
+      if (result.success) {
+        setStatus('Campmeeting saved successfully.');
+        setEditingCampmeeting(null);
+        // Reload campmeetings
+        const campmeetingsResponse = await fetch('/api/campmeetings');
+        const campmeetingsData = await campmeetingsResponse.json();
+        if (campmeetingsData?.data) {
+          setCampmeetings(campmeetingsData.data);
+        }
+      } else {
+        setStatus('Unable to save campmeeting.');
+      }
+    } catch (error) {
+      console.error(error);
+      setStatus('An error occurred while saving.');
+    }
+  };
+
+  const handleDeleteCampmeeting = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this campmeeting?')) return;
+    setStatus('Deleting campmeeting...');
+    try {
+      const response = await fetch(`/api/campmeetings/${id}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+      if (result.success) {
+        setStatus('Campmeeting deleted successfully.');
+        setCampmeetings(campmeetings.filter(c => c.id !== id));
+      } else {
+        setStatus('Unable to delete campmeeting.');
+      }
+    } catch (error) {
+      console.error(error);
+      setStatus('An error occurred while deleting.');
+    }
+  };
 
   return (
     <div className='min-h-screen bg-slate-900 flex'>
-      {/* Sidebar */}
       <motion.div
         initial={{ x: -300 }}
         animate={{ x: 0 }}
@@ -37,10 +301,7 @@ export default function AdminDashboard() {
           <div className={`${!sidebarOpen && 'hidden'} text-xl font-bold text-white`}>
             <span className='text-blue-400'>Admin</span>
           </div>
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className='text-gray-400 hover:text-white'
-          >
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className='text-gray-400 hover:text-white'>
             <Menu size={24} />
           </button>
         </div>
@@ -72,182 +333,512 @@ export default function AdminDashboard() {
         </motion.button>
       </motion.div>
 
-      {/* Main Content */}
       <div className={`${sidebarOpen ? 'ml-64' : 'ml-20'} flex-1 transition-all duration-300`}>
-        {/* Top Bar */}
         <div className='bg-slate-800 border-b border-slate-700 px-8 py-6'>
           <div className='flex justify-between items-center'>
-            <h1 className='text-3xl font-bold text-white capitalize'>{activeTab}</h1>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowNewPostModal(true)}
-              className='flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold'
+            <h1 className='text-3xl font-bold text-white capitalize'>{activeTab.replace('-', ' ')}</h1>
+            <a
+              href='/'
+              target='_blank'
+              className='px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition duration-300'
             >
-              <Plus size={20} /> Add New
-            </motion.button>
+              View Site
+            </a>
           </div>
         </div>
 
-        {/* Content */}
         <div className='p-8'>
-          {activeTab === 'overview' && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className='space-y-8'
-            >
-              <h2 className='text-2xl font-bold text-white'>Dashboard Overview</h2>
-              <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'>
-                {stats.map((stat, idx) => (
-                  <motion.div
-                    key={idx}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.1 }}
-                    className='bg-slate-800 border border-slate-700 p-6 rounded-lg'
-                  >
-                    <div className='flex items-center justify-between'>
-                      <div>
-                        <p className='text-gray-400 text-sm'>{stat.label}</p>
-                        <p className='text-3xl font-bold text-white mt-2'>{stat.value}</p>
-                      </div>
-                      <stat.icon className='text-blue-400' size={32} />
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+          {activeTab === 'site-info' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className='space-y-8'>
+              <div className='rounded-3xl border border-slate-700 bg-slate-900 p-8'>
+                <h2 className='text-2xl font-bold text-white mb-4'>Website Information</h2>
+                <p className='text-slate-400 mb-6'>Update the homepage headline, contact details, and church description. Changes are saved to your website backend.</p>
 
-              {/* Recent Activity */}
-              <div className='bg-slate-800 border border-slate-700 p-6 rounded-lg'>
-                <h3 className='text-xl font-bold text-white mb-6'>Recent Activity</h3>
-                <div className='space-y-4'>
-                  {[1, 2, 3, 4, 5].map((item) => (
-                    <div key={item} className='flex items-center justify-between p-4 bg-slate-900 rounded-lg'>
-                      <div>
-                        <p className='text-white font-semibold'>New sermon uploaded</p>
-                        <p className='text-gray-400 text-sm'>2 hours ago</p>
+                <div className='grid gap-6'>
+                  {loading ? (
+                    <div className='text-slate-300'>Loading saved settings...</div>
+                  ) : (
+                    <>
+                      <label className='space-y-2'>
+                        <span className='text-sm font-semibold text-slate-200'>Site Title</span>
+                        <input
+                          value={siteInfo.siteTitle}
+                          onChange={(e) => setSiteInfo({ ...siteInfo, siteTitle: e.target.value })}
+                          className='w-full rounded-3xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500'
+                        />
+                      </label>
+                      <label className='space-y-2'>
+                        <span className='text-sm font-semibold text-slate-200'>Homepage Headline</span>
+                        <input
+                          value={siteInfo.homepageHeadline}
+                          onChange={(e) => setSiteInfo({ ...siteInfo, homepageHeadline: e.target.value })}
+                          className='w-full rounded-3xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500'
+                        />
+                      </label>
+                      <label className='space-y-2'>
+                        <span className='text-sm font-semibold text-slate-200'>Homepage Subtext</span>
+                        <textarea
+                          value={siteInfo.homepageSubtext}
+                          onChange={(e) => setSiteInfo({ ...siteInfo, homepageSubtext: e.target.value })}
+                          className='w-full rounded-3xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500 min-h-[120px]'
+                        />
+                      </label>
+                      <div className='grid gap-6 md:grid-cols-2'>
+                        <label className='space-y-2'>
+                          <span className='text-sm font-semibold text-slate-200'>Contact Email</span>
+                          <input
+                            value={siteInfo.contactEmail}
+                            onChange={(e) => setSiteInfo({ ...siteInfo, contactEmail: e.target.value })}
+                            className='w-full rounded-3xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500'
+                          />
+                        </label>
+                        <label className='space-y-2'>
+                          <span className='text-sm font-semibold text-slate-200'>Contact Phone</span>
+                          <input
+                            value={siteInfo.contactPhone}
+                            onChange={(e) => setSiteInfo({ ...siteInfo, contactPhone: e.target.value })}
+                            className='w-full rounded-3xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500'
+                          />
+                        </label>
                       </div>
-                      <span className='text-green-400'>✓</span>
-                    </div>
-                  ))}
+                      <label className='space-y-2'>
+                        <span className='text-sm font-semibold text-slate-200'>Address</span>
+                        <input
+                          value={siteInfo.address}
+                          onChange={(e) => setSiteInfo({ ...siteInfo, address: e.target.value })}
+                          className='w-full rounded-3xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500'
+                        />
+                      </label>
+                    </>
+                  )}
+                </div>
+
+                <div className='mt-8 flex flex-col gap-4 sm:flex-row sm:items-center'>
+                  <button
+                    onClick={handleSave}
+                    className='inline-flex items-center justify-center rounded-full bg-blue-600 px-6 py-3 text-white font-semibold transition hover:bg-blue-700'
+                  >
+                    Save Website Information
+                  </button>
+                  {status && <p className='text-slate-300'>{status}</p>}
                 </div>
               </div>
             </motion.div>
           )}
 
-          {activeTab === 'posts' && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className='space-y-6'
-            >
-              <h2 className='text-2xl font-bold text-white'>Blog Posts</h2>
-              <div className='bg-slate-800 border border-slate-700 rounded-lg overflow-hidden'>
-                <table className='w-full'>
-                  <thead className='bg-slate-900 border-b border-slate-700'>
-                    <tr>
-                      <th className='px-6 py-3 text-left text-white font-semibold'>Title</th>
-                      <th className='px-6 py-3 text-left text-white font-semibold'>Author</th>
-                      <th className='px-6 py-3 text-left text-white font-semibold'>Date</th>
-                      <th className='px-6 py-3 text-left text-white font-semibold'>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className='divide-y divide-slate-700'>
-                    {['Post 1', 'Post 2', 'Post 3'].map((post) => (
-                      <tr key={post} className='hover:bg-slate-900/50'>
-                        <td className='px-6 py-4 text-white'>{post}</td>
-                        <td className='px-6 py-4 text-gray-400'>Admin</td>
-                        <td className='px-6 py-4 text-gray-400'>May 11, 2026</td>
-                        <td className='px-6 py-4 flex gap-2'>
-                          <button className='text-blue-400 hover:text-blue-300'><Edit size={18} /></button>
-                          <button className='text-red-400 hover:text-red-300'><Trash2 size={18} /></button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {activeTab === 'content' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className='space-y-8'>
+              <div className='rounded-3xl border border-slate-700 bg-slate-900 p-8'>
+                <div className='flex justify-between items-center mb-6'>
+                  <div>
+                    <h2 className='text-2xl font-bold text-white mb-2'>SDA Hymns Management</h2>
+                    <p className='text-slate-400'>Manage the church hymn collection with lyrics in multiple languages.</p>
+                  </div>
+                  <button
+                    onClick={() => setEditingHymn({ number: hymns.length + 1, title: '', lyrics: { english: '', kiswahili: '', luo: '' } })}
+                    className='px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition duration-300'
+                  >
+                    Add Hymn
+                  </button>
+                </div>
+
+                <div className='space-y-4'>
+                  {hymns.map((hymn) => (
+                    <div key={hymn.id} className='flex items-center justify-between p-4 bg-slate-800 rounded-lg'>
+                      <div>
+                        <h3 className='text-white font-medium'>#{hymn.number} - {hymn.title}</h3>
+                        <p className='text-slate-400 text-sm'>Languages: {Object.keys(hymn.lyrics || {}).join(', ')}</p>
+                      </div>
+                      <div className='flex gap-2'>
+                        <button
+                          onClick={() => setEditingHymn(hymn)}
+                          className='px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-sm'
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => hymn.id && handleDeleteHymn(hymn.id)}
+                          className='px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm'
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {editingHymn && (
+                  <div className='mt-8 p-6 bg-slate-800 rounded-lg'>
+                    <h3 className='text-xl font-bold text-white mb-4'>
+                      {editingHymn.id ? 'Edit Hymn' : 'Add New Hymn'}
+                    </h3>
+                    <div className='grid gap-4'>
+                      <div className='grid grid-cols-2 gap-4'>
+                        <label className='space-y-2'>
+                          <span className='text-sm font-semibold text-slate-200'>Hymn Number</span>
+                          <input
+                            type='number'
+                            value={editingHymn.number || ''}
+                            onChange={(e) => setEditingHymn({ ...editingHymn, number: parseInt(e.target.value) })}
+                            className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                          />
+                        </label>
+                        <label className='space-y-2'>
+                          <span className='text-sm font-semibold text-slate-200'>Title</span>
+                          <input
+                            value={editingHymn.title || ''}
+                            onChange={(e) => setEditingHymn({ ...editingHymn, title: e.target.value })}
+                            className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                          />
+                        </label>
+                      </div>
+                      <label className='space-y-2'>
+                        <span className='text-sm font-semibold text-slate-200'>English Lyrics</span>
+                        <textarea
+                          value={editingHymn.lyrics?.english || ''}
+                          onChange={(e) => setEditingHymn({
+                            ...editingHymn,
+                            lyrics: { ...editingHymn.lyrics, english: e.target.value }
+                          })}
+                          className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white min-h-[100px]'
+                        />
+                      </label>
+                      <label className='space-y-2'>
+                        <span className='text-sm font-semibold text-slate-200'>Kiswahili Lyrics</span>
+                        <textarea
+                          value={editingHymn.lyrics?.kiswahili || ''}
+                          onChange={(e) => setEditingHymn({
+                            ...editingHymn,
+                            lyrics: { ...editingHymn.lyrics, kiswahili: e.target.value }
+                          })}
+                          className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white min-h-[100px]'
+                        />
+                      </label>
+                      <label className='space-y-2'>
+                        <span className='text-sm font-semibold text-slate-200'>Luo Lyrics</span>
+                        <textarea
+                          value={editingHymn.lyrics?.luo || ''}
+                          onChange={(e) => setEditingHymn({
+                            ...editingHymn,
+                            lyrics: { ...editingHymn.lyrics, luo: e.target.value }
+                          })}
+                          className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white min-h-[100px]'
+                        />
+                      </label>
+                      <label className='space-y-2'>
+                        <span className='text-sm font-semibold text-slate-200'>Source URL (Optional)</span>
+                        <input
+                          value={editingHymn.sourceUrl || ''}
+                          onChange={(e) => setEditingHymn({ ...editingHymn, sourceUrl: e.target.value })}
+                          className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                          placeholder='https://...'
+                        />
+                      </label>
+                    </div>
+                    <div className='flex gap-4 mt-6'>
+                      <button
+                        onClick={() => handleSaveHymn(editingHymn)}
+                        className='px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded'
+                      >
+                        Save Hymn
+                      </button>
+                      <button
+                        onClick={() => setEditingHymn(null)}
+                        className='px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded'
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
 
-          {activeTab === 'sermons' && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className='space-y-6'
-            >
-              <h2 className='text-2xl font-bold text-white'>Sermons</h2>
-              <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
-                {['Sermon 1', 'Sermon 2', 'Sermon 3'].map((sermon) => (
-                  <div key={sermon} className='bg-slate-800 border border-slate-700 p-6 rounded-lg'>
-                    <div className='bg-slate-900 h-32 rounded-lg mb-4 flex items-center justify-center'>
-                      <Music className='text-gray-500' size={48} />
+          {activeTab === 'events' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className='space-y-8'>
+              <div className='rounded-3xl border border-slate-700 bg-slate-900 p-8'>
+                <div className='flex justify-between items-center mb-6'>
+                  <div>
+                    <h2 className='text-2xl font-bold text-white mb-2'>Church Events Management</h2>
+                    <p className='text-slate-400'>Manage upcoming church events and programs.</p>
+                  </div>
+                  <button
+                    onClick={() => setEditingEvent({ title: '', date: '', time: '', location: '', description: '' })}
+                    className='px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition duration-300'
+                  >
+                    Add Event
+                  </button>
+                </div>
+
+                <div className='space-y-4'>
+                  {events.map((event) => (
+                    <div key={event.id} className='flex items-center justify-between p-4 bg-slate-800 rounded-lg'>
+                      <div>
+                        <h3 className='text-white font-medium'>{event.title}</h3>
+                        <p className='text-slate-400 text-sm'>{new Date(event.date).toLocaleDateString()} - {event.location}</p>
+                      </div>
+                      <div className='flex gap-2'>
+                        <button
+                          onClick={() => setEditingEvent(event)}
+                          className='px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-sm'
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => event.id && handleDeleteEvent(event.id)}
+                          className='px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm'
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
-                    <h4 className='text-white font-semibold mb-2'>{sermon}</h4>
-                    <p className='text-gray-400 text-sm mb-4'>By Pastor John • May 10</p>
-                    <div className='flex gap-2'>
-                      <button className='flex-1 text-blue-400 hover:text-blue-300 px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-700 transition'><Edit size={18} /></button>
-                      <button className='flex-1 text-red-400 hover:text-red-300 px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-700 transition'><Trash2 size={18} /></button>
+                  ))}
+                </div>
+
+                {editingEvent && (
+                  <div className='mt-8 p-6 bg-slate-800 rounded-lg'>
+                    <h3 className='text-xl font-bold text-white mb-4'>
+                      {editingEvent.id ? 'Edit Event' : 'Add New Event'}
+                    </h3>
+                    <div className='grid gap-4'>
+                      <label className='space-y-2'>
+                        <span className='text-sm font-semibold text-slate-200'>Event Title</span>
+                        <input
+                          value={editingEvent.title || ''}
+                          onChange={(e) => setEditingEvent({ ...editingEvent, title: e.target.value })}
+                          className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                        />
+                      </label>
+                      <div className='grid grid-cols-2 gap-4'>
+                        <label className='space-y-2'>
+                          <span className='text-sm font-semibold text-slate-200'>Date</span>
+                          <input
+                            type='date'
+                            value={editingEvent.date || ''}
+                            onChange={(e) => setEditingEvent({ ...editingEvent, date: e.target.value })}
+                            className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                          />
+                        </label>
+                        <label className='space-y-2'>
+                          <span className='text-sm font-semibold text-slate-200'>Time</span>
+                          <input
+                            type='time'
+                            value={editingEvent.time || ''}
+                            onChange={(e) => setEditingEvent({ ...editingEvent, time: e.target.value })}
+                            className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                          />
+                        </label>
+                      </div>
+                      <label className='space-y-2'>
+                        <span className='text-sm font-semibold text-slate-200'>Location</span>
+                        <input
+                          value={editingEvent.location || ''}
+                          onChange={(e) => setEditingEvent({ ...editingEvent, location: e.target.value })}
+                          className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                        />
+                      </label>
+                      <label className='space-y-2'>
+                        <span className='text-sm font-semibold text-slate-200'>Description</span>
+                        <textarea
+                          value={editingEvent.description || ''}
+                          onChange={(e) => setEditingEvent({ ...editingEvent, description: e.target.value })}
+                          className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white min-h-[100px]'
+                        />
+                      </label>
+                    </div>
+                    <div className='flex gap-4 mt-6'>
+                      <button
+                        onClick={() => handleSaveEvent(editingEvent)}
+                        className='px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded'
+                      >
+                        Save Event
+                      </button>
+                      <button
+                        onClick={() => setEditingEvent(null)}
+                        className='px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded'
+                      >
+                        Cancel
+                      </button>
                     </div>
                   </div>
-                ))}
+                )}
               </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'campmeetings' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className='space-y-8'>
+              <div className='rounded-3xl border border-slate-700 bg-slate-900 p-8'>
+                <div className='flex justify-between items-center mb-6'>
+                  <div>
+                    <h2 className='text-2xl font-bold text-white mb-2'>Campmeetings Management</h2>
+                    <p className='text-slate-400'>Manage SDA campmeeting events and registration details.</p>
+                  </div>
+                  <button
+                    onClick={() => setEditingCampmeeting({
+                      title: '',
+                      location: '',
+                      date: '',
+                      duration: '',
+                      theme: '',
+                      description: '',
+                      speakers: [],
+                      capacity: 0,
+                      registrationOpen: true
+                    })}
+                    className='px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition duration-300'
+                  >
+                    Add Campmeeting
+                  </button>
+                </div>
+
+                <div className='space-y-4'>
+                  {campmeetings.map((campmeeting) => (
+                    <div key={campmeeting.id} className='flex items-center justify-between p-4 bg-slate-800 rounded-lg'>
+                      <div>
+                        <h3 className='text-white font-medium'>{campmeeting.title}</h3>
+                        <p className='text-slate-400 text-sm'>{new Date(campmeeting.date).toLocaleDateString()} - {campmeeting.location}</p>
+                      </div>
+                      <div className='flex gap-2'>
+                        <button
+                          onClick={() => setEditingCampmeeting(campmeeting)}
+                          className='px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-sm'
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => campmeeting.id && handleDeleteCampmeeting(campmeeting.id)}
+                          className='px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm'
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {editingCampmeeting && (
+                  <div className='mt-8 p-6 bg-slate-800 rounded-lg'>
+                    <h3 className='text-xl font-bold text-white mb-4'>
+                      {editingCampmeeting.id ? 'Edit Campmeeting' : 'Add New Campmeeting'}
+                    </h3>
+                    <div className='grid gap-4'>
+                      <label className='space-y-2'>
+                        <span className='text-sm font-semibold text-slate-200'>Campmeeting Title</span>
+                        <input
+                          value={editingCampmeeting.title || ''}
+                          onChange={(e) => setEditingCampmeeting({ ...editingCampmeeting, title: e.target.value })}
+                          className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                        />
+                      </label>
+                      <div className='grid grid-cols-2 gap-4'>
+                        <label className='space-y-2'>
+                          <span className='text-sm font-semibold text-slate-200'>Date</span>
+                          <input
+                            type='date'
+                            value={editingCampmeeting.date || ''}
+                            onChange={(e) => setEditingCampmeeting({ ...editingCampmeeting, date: e.target.value })}
+                            className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                          />
+                        </label>
+                        <label className='space-y-2'>
+                          <span className='text-sm font-semibold text-slate-200'>Duration</span>
+                          <input
+                            value={editingCampmeeting.duration || ''}
+                            onChange={(e) => setEditingCampmeeting({ ...editingCampmeeting, duration: e.target.value })}
+                            className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                            placeholder='e.g., 5 days'
+                          />
+                        </label>
+                      </div>
+                      <label className='space-y-2'>
+                        <span className='text-sm font-semibold text-slate-200'>Location</span>
+                        <input
+                          value={editingCampmeeting.location || ''}
+                          onChange={(e) => setEditingCampmeeting({ ...editingCampmeeting, location: e.target.value })}
+                          className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                        />
+                      </label>
+                      <label className='space-y-2'>
+                        <span className='text-sm font-semibold text-slate-200'>Theme</span>
+                        <input
+                          value={editingCampmeeting.theme || ''}
+                          onChange={(e) => setEditingCampmeeting({ ...editingCampmeeting, theme: e.target.value })}
+                          className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                        />
+                      </label>
+                      <label className='space-y-2'>
+                        <span className='text-sm font-semibold text-slate-200'>Description</span>
+                        <textarea
+                          value={editingCampmeeting.description || ''}
+                          onChange={(e) => setEditingCampmeeting({ ...editingCampmeeting, description: e.target.value })}
+                          className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white min-h-[100px]'
+                        />
+                      </label>
+                      <label className='space-y-2'>
+                        <span className='text-sm font-semibold text-slate-200'>Speakers (comma-separated)</span>
+                        <input
+                          value={editingCampmeeting.speakers?.join(', ') || ''}
+                          onChange={(e) => setEditingCampmeeting({
+                            ...editingCampmeeting,
+                            speakers: e.target.value.split(',').map(s => s.trim()).filter(s => s)
+                          })}
+                          className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                          placeholder='Pastor John, Elder Mary'
+                        />
+                      </label>
+                      <div className='grid grid-cols-2 gap-4'>
+                        <label className='space-y-2'>
+                          <span className='text-sm font-semibold text-slate-200'>Capacity</span>
+                          <input
+                            type='number'
+                            value={editingCampmeeting.capacity || ''}
+                            onChange={(e) => setEditingCampmeeting({ ...editingCampmeeting, capacity: parseInt(e.target.value) || 0 })}
+                            className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                          />
+                        </label>
+                        <label className='space-y-2'>
+                          <span className='text-sm font-semibold text-slate-200'>Registration Open</span>
+                          <select
+                            value={editingCampmeeting.registrationOpen ? 'true' : 'false'}
+                            onChange={(e) => setEditingCampmeeting({ ...editingCampmeeting, registrationOpen: e.target.value === 'true' })}
+                            className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                          >
+                            <option value='true'>Yes</option>
+                            <option value='false'>No</option>
+                          </select>
+                        </label>
+                      </div>
+                    </div>
+                    <div className='flex gap-4 mt-6'>
+                      <button
+                        onClick={() => handleSaveCampmeeting(editingCampmeeting)}
+                        className='px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded'
+                      >
+                        Save Campmeeting
+                      </button>
+                      <button
+                        onClick={() => setEditingCampmeeting(null)}
+                        className='px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded'
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {(activeTab === 'users' || activeTab === 'overview') && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className='rounded-3xl border border-slate-700 bg-slate-900 p-8'>
+              <h2 className='text-2xl font-bold text-white'>Admin Tools</h2>
+              <p className='text-slate-400 mt-4'>This section is under development. Use the other tabs to manage website content.</p>
             </motion.div>
           )}
         </div>
       </div>
-
-      {/* New Post Modal */}
-      {showNewPostModal && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className='fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50'
-          onClick={() => setShowNewPostModal(false)}
-        >
-          <motion.div
-            initial={{ scale: 0.9 }}
-            animate={{ scale: 1 }}
-            className='bg-slate-800 rounded-lg p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto'
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className='text-2xl font-bold text-white mb-6'>Create New Post</h2>
-            <form className='space-y-6'>
-              <div>
-                <label className='block text-white font-semibold mb-2'>Title</label>
-                <input
-                  type='text'
-                  className='w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-blue-500 outline-none'
-                  placeholder='Post title'
-                />
-              </div>
-              <div>
-                <label className='block text-white font-semibold mb-2'>Content</label>
-                <textarea
-                  className='w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-blue-500 outline-none min-h-40'
-                  placeholder='Post content'
-                />
-              </div>
-              <div className='flex gap-4'>
-                <button
-                  type='submit'
-                  className='flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition'
-                >
-                  Publish
-                </button>
-                <button
-                  type='button'
-                  onClick={() => setShowNewPostModal(false)}
-                  className='flex-1 bg-slate-700 hover:bg-slate-600 text-white px-6 py-3 rounded-lg font-semibold transition'
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </motion.div>
-      )}
     </div>
   );
 }

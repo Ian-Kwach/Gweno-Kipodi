@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Clock, MapPin, Users, Bell } from 'lucide-react';
 
@@ -16,52 +16,27 @@ interface Event {
   category: 'worship' | 'youth' | 'community' | 'education';
 }
 
-const mockEvents: Event[] = [
-  {
-    id: '1',
-    title: 'Youth Camp 2026',
-    date: '2026-07-15',
-    time: '08:00 AM',
-    location: 'Church Grounds',
-    description: 'A week-long youth spiritual retreat with games, worship, and Bible studies.',
-    attendees: 120,
-    category: 'youth',
-  },
-  {
-    id: '2',
-    title: 'Community Service Day',
-    date: '2026-06-10',
-    time: '09:00 AM',
-    location: 'Downtown Kisii',
-    description: 'Join us in serving the community through various service projects.',
-    attendees: 80,
-    category: 'community',
-  },
-  {
-    id: '3',
-    title: 'Sabbath Spiritual Retreat',
-    date: '2026-05-25',
-    time: '10:00 AM',
-    location: 'Church Auditorium',
-    description: 'A day of deep spiritual reflection and renewal.',
-    attendees: 200,
-    category: 'worship',
-  },
-  {
-    id: '4',
-    title: 'Bible Study Series',
-    date: '2026-06-01',
-    time: '06:00 PM',
-    location: 'Conference Room',
-    description: 'Weekly Bible study on the Book of Revelation.',
-    attendees: 45,
-    category: 'education',
-  },
-];
-
 export default function EventsPage() {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState('all');
-  const events = mockEvents;
+
+  useEffect(() => {
+    async function loadEvents() {
+      try {
+        const response = await fetch('/api/events');
+        const data = await response.json();
+        if (data?.data) {
+          setEvents(data.data);
+        }
+      } catch (error) {
+        console.error('Error loading events:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadEvents();
+  }, []);
 
   const filteredEvents = filterCategory === 'all'
     ? events
@@ -103,7 +78,12 @@ export default function EventsPage() {
 
         {/* Events Timeline */}
         <div className='space-y-6'>
-          {upcomingEvents.map((event, idx) => (
+          {loading ? (
+            <div className='text-center text-gray-300'>Loading events...</div>
+          ) : upcomingEvents.length === 0 ? (
+            <div className='text-center text-gray-300'>No events available at this time.</div>
+          ) : (
+            upcomingEvents.map((event, idx) => (
             <motion.div
               key={event.id}
               initial={{ opacity: 0, x: -20 }}
@@ -157,7 +137,8 @@ export default function EventsPage() {
                 </button>
               </div>
             </motion.div>
-          ))}
+          ))
+          )}
         </div>
       </div>
     </div>

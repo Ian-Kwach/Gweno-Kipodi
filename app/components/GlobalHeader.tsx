@@ -10,7 +10,6 @@ const navItems = [
   { href: '/sermons', label: 'Sermons' },
   { href: '/hymns', label: 'Hymns' },
   { href: '/events', label: 'Events' },
-  { href: '/giving', label: 'Giving' },
   { href: '/gallery', label: 'Gallery' },
   { href: '/devotionals', label: 'Devotionals' },
   { href: '/departments', label: 'Departments' },

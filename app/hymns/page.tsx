@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Music, Search, Download, Heart, Share2 } from 'lucide-react';
 
@@ -13,51 +13,37 @@ interface Hymn {
     kiswahili: string;
     luo: string;
   };
-  audio?: string;
+  sourceUrl?: string;
 }
 
-const mockHymns: Hymn[] = [
-  {
-    id: '1',
-    number: 1,
-    title: 'Jesus, My Savior',
-    lyrics: {
-      english: 'Jesus, my Savior, help me to understand...',
-      kiswahili: 'Yesu, Mkombezi wangu, nisaidie kuelewa...',
-      luo: 'Yesu, Jadoktor mara, konyo mar kuonge...',
-    },
-  },
-  {
-    id: '2',
-    number: 2,
-    title: 'Amazing Grace',
-    lyrics: {
-      english: 'Amazing grace, how sweet the sound...',
-      kiswahili: 'Neema ya kushangilia, jinsi ya sauti nyingi...',
-      luo: 'Nyanyar mokwongo, mopo paw oyawore...',
-    },
-  },
-  {
-    id: '3',
-    number: 3,
-    title: 'Holy, Holy, Holy',
-    lyrics: {
-      english: 'Holy, holy, holy is the Lord...',
-      kiswahili: 'Mtakatifu, mtakatifu, mtakatifu ni Mungu...',
-      luo: 'Maler, Maler, Maler e Nyasaye...',
-    },
-  },
-];
-
 export default function HymnsPage() {
+  const [hymns, setHymns] = useState<Hymn[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [language, setLanguage] = useState('english');
+  const [language, setLanguage] = useState<'english' | 'kiswahili' | 'luo'>('luo');
   const [selectedHymn, setSelectedHymn] = useState<Hymn | null>(null);
-  const hymns = mockHymns;
 
-  const filteredHymns = hymns.filter(hymn =>
-    hymn.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    hymn.number.toString().includes(searchTerm)
+  useEffect(() => {
+    async function loadHymns() {
+      try {
+        const response = await fetch('/api/hymns');
+        const data = await response.json();
+        if (data?.data) {
+          setHymns(data.data);
+        }
+      } catch (error) {
+        console.error('Error loading hymns:', error);
+      }
+    }
+    loadHymns();
+  }, []);
+
+  const filteredHymns = useMemo(
+    () => hymns.filter((hymn) =>
+      hymn.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      hymn.number.toString().includes(searchTerm) ||
+      hymn.lyrics.luo.toLowerCase().includes(searchTerm.toLowerCase())
+    ),
+    [searchTerm, hymns]
   );
 
   return (
@@ -69,11 +55,10 @@ export default function HymnsPage() {
           className='text-5xl font-bold text-white mb-2'
         >
           <Music className='inline-block mr-4 text-blue-400' size={40} />
-          SDA Hymns Library
+          Luo Hymns Library
         </motion.h1>
-        <p className='text-gray-300 mb-8'>Beautiful hymns in Luo, Kiswahili, and English</p>
+        <p className='text-gray-300 mb-8'>All songs are available in Luo, with complete lyrics for the SDA hymn collection.</p>
 
-        {/* Search and Filters */}
         <div className='mb-8 space-y-4'>
           <div className='flex gap-4 flex-wrap'>
             <div className='flex-1 min-w-xs'>
@@ -81,7 +66,7 @@ export default function HymnsPage() {
                 <Search className='absolute left-3 top-3 text-gray-400' size={20} />
                 <input
                   type='text'
-                  placeholder='Search by hymn number or title...'
+                  placeholder='Search by number, title, or Luo lyrics...'
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className='w-full pl-10 pr-4 py-3 bg-slate-800 border border-blue-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-400'
@@ -90,7 +75,7 @@ export default function HymnsPage() {
             </div>
             <select
               value={language}
-              onChange={(e) => setLanguage(e.target.value)}
+              onChange={(e) => setLanguage(e.target.value as 'english' | 'kiswahili' | 'luo')}
               className='px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 cursor-pointer'
             >
               <option value='english'>English</option>
@@ -98,16 +83,16 @@ export default function HymnsPage() {
               <option value='luo'>Luo</option>
             </select>
           </div>
+          <p className='text-slate-400'>Showing {filteredHymns.length} of {hymns.length} hymns</p>
         </div>
 
-        {/* Hymns Grid */}
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'>
           {filteredHymns.map((hymn, idx) => (
             <motion.div
               key={hymn.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1 }}
+              transition={{ delay: idx * 0.05 }}
               onClick={() => setSelectedHymn(hymn)}
               className='bg-gradient-to-br from-blue-900/40 to-purple-900/40 backdrop-blur-md p-6 rounded-xl border border-blue-500/20 hover:border-blue-400/50 cursor-pointer transition transform hover:scale-105'
             >
@@ -128,7 +113,6 @@ export default function HymnsPage() {
           ))}
         </div>
 
-        {/* Hymn Detail Modal */}
         {selectedHymn && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -155,10 +139,9 @@ export default function HymnsPage() {
                 </button>
               </div>
 
-              {/* Lyrics Tabs */}
               <div className='mb-6'>
                 <div className='flex gap-2 mb-4 border-b border-slate-700'>
-                  {(['english', 'kiswahili', 'luo'] as const).map(lang => (
+                  {(['english', 'kiswahili', 'luo'] as const).map((lang) => (
                     <button
                       key={lang}
                       onClick={() => setLanguage(lang)}
@@ -173,12 +156,17 @@ export default function HymnsPage() {
                   ))}
                 </div>
                 <div className='bg-slate-900/50 p-6 rounded-lg text-gray-300 whitespace-pre-wrap leading-relaxed'>
-                  {selectedHymn.lyrics[language as keyof typeof selectedHymn.lyrics]}
+                  {selectedHymn.lyrics[language]}
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className='flex gap-4'>
+              {selectedHymn.sourceUrl && (
+                <p className='text-sm text-slate-400 mb-4'>
+                  Source: <a href={selectedHymn.sourceUrl} target='_blank' rel='noreferrer' className='text-blue-400 underline'>SDA Hymn Books Collection</a>
+                </p>
+              )}
+
+              <div className='flex flex-col gap-4 sm:flex-row'>
                 <button className='flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-semibold flex items-center justify-center gap-2'>
                   <Music size={20} /> Play Audio
                 </button>
