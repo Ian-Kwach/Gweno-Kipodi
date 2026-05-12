@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Music, Search, Download, Heart, Share2 } from 'lucide-react';
@@ -14,6 +15,8 @@ interface Hymn {
     luo: string;
   };
   sourceUrl?: string;
+  imageUrl?: string;
+  videoUrl?: string;
 }
 
 export default function HymnsPage() {
@@ -159,6 +162,33 @@ export default function HymnsPage() {
                   {selectedHymn.lyrics[language]}
                 </div>
               </div>
+
+              {selectedHymn.imageUrl && (
+                <div className='mb-6'>
+                  <Image
+                    src={selectedHymn.imageUrl}
+                    alt={`${selectedHymn.title} image`}
+                    width={1200}
+                    height={700}
+                    unoptimized
+                    className='w-full rounded-xl border border-slate-700 object-cover max-h-96'
+                  />
+                </div>
+              )}
+
+              {selectedHymn.videoUrl && (
+                <div className='mb-6'>
+                  <div className='text-slate-300 font-semibold mb-2'>Video</div>
+                  <a
+                    href={selectedHymn.videoUrl}
+                    target='_blank'
+                    rel='noreferrer'
+                    className='inline-flex items-center gap-2 px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg'
+                  >
+                    Watch Video
+                  </a>
+                </div>
+              )}
 
               {selectedHymn.sourceUrl && (
                 <p className='text-sm text-slate-400 mb-4'>

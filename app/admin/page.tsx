@@ -14,6 +14,8 @@ interface Hymn {
     luo: string;
   };
   sourceUrl?: string;
+  imageUrl?: string;
+  videoUrl?: string;
 }
 
 interface Event {
@@ -37,6 +39,15 @@ interface Campmeeting {
   speakers: string[];
   capacity: number;
   registrationOpen: boolean;
+}
+
+interface User {
+  id?: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'editor' | 'viewer';
+  status: 'active' | 'inactive';
+  createdAt?: Date;
 }
 
 interface SiteInfo {
@@ -68,11 +79,13 @@ export default function AdminDashboard() {
   const [hymns, setHymns] = useState<Hymn[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [campmeetings, setCampmeetings] = useState<Campmeeting[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
 
   // Editing states
   const [editingHymn, setEditingHymn] = useState<Hymn | null>(null);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [editingCampmeeting, setEditingCampmeeting] = useState<Campmeeting | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
   const menuItems = [
     { id: 'site-info', label: 'Site Info', icon: FileText },
@@ -112,6 +125,13 @@ export default function AdminDashboard() {
         const campmeetingsData = await campmeetingsResponse.json();
         if (campmeetingsData?.data) {
           setCampmeetings(campmeetingsData.data);
+        }
+
+        // Load users
+        const usersResponse = await fetch('/api/users');
+        const usersData = await usersResponse.json();
+        if (usersData?.data) {
+          setUsers(usersData.data);
         }
       } catch (error) {
         console.error('Error loading data:', error);
@@ -290,6 +310,55 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleSaveUser = async (user: User) => {
+    setStatus('Saving user...');
+    try {
+      const method = user.id ? 'PUT' : 'POST';
+      const url = user.id ? `/api/users/${user.id}` : '/api/users';
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user),
+      });
+      const result = await response.json();
+      if (result.success) {
+        setStatus('User saved successfully.');
+        setEditingUser(null);
+        // Reload users
+        const usersResponse = await fetch('/api/users');
+        const usersData = await usersResponse.json();
+        if (usersData?.data) {
+          setUsers(usersData.data);
+        }
+      } else {
+        setStatus('Unable to save user.');
+      }
+    } catch (error) {
+      console.error(error);
+      setStatus('An error occurred while saving.');
+    }
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this user?')) return;
+    setStatus('Deleting user...');
+    try {
+      const response = await fetch(`/api/users/${id}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+      if (result.success) {
+        setStatus('User deleted successfully.');
+        setUsers(users.filter(u => u.id !== id));
+      } else {
+        setStatus('Unable to delete user.');
+      }
+    } catch (error) {
+      console.error(error);
+      setStatus('An error occurred while deleting.');
+    }
+  };
+
   return (
     <div className='min-h-screen bg-slate-900 flex'>
       <motion.div
@@ -435,7 +504,7 @@ export default function AdminDashboard() {
                     <p className='text-slate-400'>Manage the church hymn collection with lyrics in multiple languages.</p>
                   </div>
                   <button
-                    onClick={() => setEditingHymn({ number: hymns.length + 1, title: '', lyrics: { english: '', kiswahili: '', luo: '' } })}
+                    onClick={() => setEditingHymn({ number: hymns.length + 1, title: '', lyrics: { english: '', kiswahili: '', luo: '' }, sourceUrl: '', imageUrl: '', videoUrl: '' })}
                     className='px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition duration-300'
                   >
                     Add Hymn
@@ -530,6 +599,24 @@ export default function AdminDashboard() {
                         <input
                           value={editingHymn.sourceUrl || ''}
                           onChange={(e) => setEditingHymn({ ...editingHymn, sourceUrl: e.target.value })}
+                          className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                          placeholder='https://...'
+                        />
+                      </label>
+                      <label className='space-y-2'>
+                        <span className='text-sm font-semibold text-slate-200'>Image URL (Optional)</span>
+                        <input
+                          value={editingHymn.imageUrl || ''}
+                          onChange={(e) => setEditingHymn({ ...editingHymn, imageUrl: e.target.value })}
+                          className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                          placeholder='https://...'
+                        />
+                      </label>
+                      <label className='space-y-2'>
+                        <span className='text-sm font-semibold text-slate-200'>Video URL (Optional)</span>
+                        <input
+                          value={editingHymn.videoUrl || ''}
+                          onChange={(e) => setEditingHymn({ ...editingHymn, videoUrl: e.target.value })}
                           className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
                           placeholder='https://...'
                         />
@@ -831,10 +918,136 @@ export default function AdminDashboard() {
             </motion.div>
           )}
 
-          {(activeTab === 'users' || activeTab === 'overview') && (
+          {activeTab === 'users' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className='space-y-8'>
+              <div className='rounded-3xl border border-slate-700 bg-slate-900 p-8'>
+                <div className='flex justify-between items-center mb-6'>
+                  <div>
+                    <h2 className='text-2xl font-bold text-white mb-2'>User Management</h2>
+                    <p className='text-slate-400'>Manage people who can access and edit the website.</p>
+                  </div>
+                  <button
+                    onClick={() => setEditingUser({ name: '', email: '', role: 'editor', status: 'active' })}
+                    className='px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition duration-300'
+                  >
+                    Add User
+                  </button>
+                </div>
+
+                <div className='space-y-4'>
+                  {users.map((user) => (
+                    <div key={user.id} className='flex items-center justify-between p-4 bg-slate-800 rounded-lg'>
+                      <div>
+                        <h3 className='text-white font-medium'>{user.name}</h3>
+                        <p className='text-slate-400 text-sm'>{user.email}</p>
+                        <div className='flex gap-2 mt-2'>
+                          <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                            user.role === 'admin' ? 'bg-red-500/20 text-red-300' : 
+                            user.role === 'editor' ? 'bg-blue-500/20 text-blue-300' :
+                            'bg-gray-500/20 text-gray-300'
+                          }`}>
+                            {user.role.toUpperCase()}
+                          </span>
+                          <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                            user.status === 'active' ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'
+                          }`}>
+                            {user.status.toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                      <div className='flex gap-2'>
+                        <button
+                          onClick={() => setEditingUser(user)}
+                          className='px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-sm'
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => user.id && handleDeleteUser(user.id)}
+                          className='px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm'
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {editingUser && (
+                  <div className='mt-8 p-6 bg-slate-800 rounded-lg'>
+                    <h3 className='text-xl font-bold text-white mb-4'>
+                      {editingUser.id ? 'Edit User' : 'Add New User'}
+                    </h3>
+                    <div className='grid gap-4'>
+                      <label className='space-y-2'>
+                        <span className='text-sm font-semibold text-slate-200'>Full Name</span>
+                        <input
+                          value={editingUser.name || ''}
+                          onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
+                          className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                          placeholder='John Doe'
+                        />
+                      </label>
+                      <label className='space-y-2'>
+                        <span className='text-sm font-semibold text-slate-200'>Email</span>
+                        <input
+                          type='email'
+                          value={editingUser.email || ''}
+                          onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+                          className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                          placeholder='john@example.com'
+                        />
+                      </label>
+                      <div className='grid grid-cols-2 gap-4'>
+                        <label className='space-y-2'>
+                          <span className='text-sm font-semibold text-slate-200'>Role</span>
+                          <select
+                            value={editingUser.role || 'editor'}
+                            onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value as 'admin' | 'editor' | 'viewer' })}
+                            className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                          >
+                            <option value='admin'>Admin</option>
+                            <option value='editor'>Editor</option>
+                            <option value='viewer'>Viewer</option>
+                          </select>
+                        </label>
+                        <label className='space-y-2'>
+                          <span className='text-sm font-semibold text-slate-200'>Status</span>
+                          <select
+                            value={editingUser.status || 'active'}
+                            onChange={(e) => setEditingUser({ ...editingUser, status: e.target.value as 'active' | 'inactive' })}
+                            className='w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-white'
+                          >
+                            <option value='active'>Active</option>
+                            <option value='inactive'>Inactive</option>
+                          </select>
+                        </label>
+                      </div>
+                    </div>
+                    <div className='flex gap-4 mt-6'>
+                      <button
+                        onClick={() => handleSaveUser(editingUser)}
+                        className='px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded'
+                      >
+                        Save User
+                      </button>
+                      <button
+                        onClick={() => setEditingUser(null)}
+                        className='px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded'
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'overview' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className='rounded-3xl border border-slate-700 bg-slate-900 p-8'>
-              <h2 className='text-2xl font-bold text-white'>Admin Tools</h2>
-              <p className='text-slate-400 mt-4'>This section is under development. Use the other tabs to manage website content.</p>
+              <h2 className='text-2xl font-bold text-white'>Dashboard Overview</h2>
+              <p className='text-slate-400 mt-4'>Analytics and statistics coming soon.</p>
             </motion.div>
           )}
         </div>

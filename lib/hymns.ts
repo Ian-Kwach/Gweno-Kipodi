@@ -8,6 +8,8 @@ export interface Hymn {
     luo: string;
   };
   sourceUrl?: string;
+  imageUrl?: string;
+  videoUrl?: string;
 }
 
 export const hymns: Hymn[] = [
