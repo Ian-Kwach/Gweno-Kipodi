@@ -22,12 +22,28 @@ export default function EventsPage() {
   const [filterCategory, setFilterCategory] = useState('all');
 
   useEffect(() => {
+    const storedEvents = typeof window !== 'undefined' ? window.localStorage.getItem('gwenoEvents') : null;
+    if (storedEvents) {
+      try {
+        setEvents(JSON.parse(storedEvents));
+      } catch (error) {
+        console.error('Unable to parse stored events', error);
+      }
+    }
+
     async function loadEvents() {
       try {
         const response = await fetch('/api/events');
         const data = await response.json();
-        if (data?.data) {
-          setEvents(data.data);
+        const fetchedEvents = data?.data || [];
+        const localEvents = storedEvents ? JSON.parse(storedEvents) : null;
+        if (data?.source === 'local' && localEvents && localEvents.length > fetchedEvents.length) {
+          setEvents(localEvents);
+        } else {
+          setEvents(fetchedEvents);
+          if (typeof window !== 'undefined') {
+            window.localStorage.setItem('gwenoEvents', JSON.stringify(fetchedEvents));
+          }
         }
       } catch (error) {
         console.error('Error loading events:', error);

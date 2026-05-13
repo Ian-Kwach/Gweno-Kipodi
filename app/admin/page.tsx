@@ -179,6 +179,9 @@ export default function AdminDashboard() {
       });
       const result = await response.json();
       if (result.success) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('gwenoSiteInfo', JSON.stringify(siteInfo));
+        }
         setStatus('Website information updated successfully.');
       } else {
         setStatus('Unable to save site information.');
@@ -208,6 +211,9 @@ export default function AdminDashboard() {
         const hymnsData = await hymnsResponse.json();
         if (hymnsData?.data) {
           setHymns(hymnsData.data);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('gwenoHymns', JSON.stringify(hymnsData.data));
+          }
         }
       } else {
         setStatus('Unable to save hymn.');
@@ -227,8 +233,12 @@ export default function AdminDashboard() {
       });
       const result = await response.json();
       if (result.success) {
+        const updatedHymns = hymns.filter(h => h.id !== id);
         setStatus('Hymn deleted successfully.');
-        setHymns(hymns.filter(h => h.id !== id));
+        setHymns(updatedHymns);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('gwenoHymns', JSON.stringify(updatedHymns));
+        }
       } else {
         setStatus('Unable to delete hymn.');
       }
@@ -257,6 +267,9 @@ export default function AdminDashboard() {
         const eventsData = await eventsResponse.json();
         if (eventsData?.data) {
           setEvents(eventsData.data);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('gwenoEvents', JSON.stringify(eventsData.data));
+          }
         }
       } else {
         setStatus('Unable to save event.');
@@ -276,8 +289,12 @@ export default function AdminDashboard() {
       });
       const result = await response.json();
       if (result.success) {
+        const updatedEvents = events.filter(e => e.id !== id);
         setStatus('Event deleted successfully.');
-        setEvents(events.filter(e => e.id !== id));
+        setEvents(updatedEvents);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('gwenoEvents', JSON.stringify(updatedEvents));
+        }
       } else {
         setStatus('Unable to delete event.');
       }
@@ -306,6 +323,9 @@ export default function AdminDashboard() {
         const campmeetingsData = await campmeetingsResponse.json();
         if (campmeetingsData?.data) {
           setCampmeetings(campmeetingsData.data);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('gwenoCampmeetings', JSON.stringify(campmeetingsData.data));
+          }
         }
       } else {
         setStatus('Unable to save campmeeting.');
@@ -325,8 +345,12 @@ export default function AdminDashboard() {
       });
       const result = await response.json();
       if (result.success) {
+        const updatedCampmeetings = campmeetings.filter(c => c.id !== id);
         setStatus('Campmeeting deleted successfully.');
-        setCampmeetings(campmeetings.filter(c => c.id !== id));
+        setCampmeetings(updatedCampmeetings);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('gwenoCampmeetings', JSON.stringify(updatedCampmeetings));
+        }
       } else {
         setStatus('Unable to delete campmeeting.');
       }

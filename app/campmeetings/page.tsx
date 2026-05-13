@@ -23,12 +23,23 @@ export default function CampmeetingsPage() {
   const [selectedCampmeeting, setSelectedCampmeeting] = useState<Campmeeting | null>(null);
 
   useEffect(() => {
+    const storedCampmeetings = typeof window !== 'undefined' ? window.localStorage.getItem('gwenoCampmeetings') : null;
+    if (storedCampmeetings) {
+      try {
+        setCampmeetings(JSON.parse(storedCampmeetings));
+      } catch (error) {
+        console.error('Unable to parse stored campmeetings', error);
+      }
+    }
+
     async function loadCampmeetings() {
       try {
         const response = await fetch('/api/campmeetings');
         const data = await response.json();
-        if (data?.data) {
-          setCampmeetings(data.data);
+        const fetchedCampmeetings = data?.data || [];
+        setCampmeetings(fetchedCampmeetings);
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('gwenoCampmeetings', JSON.stringify(fetchedCampmeetings));
         }
       } catch (error) {
         console.error('Error loading campmeetings:', error);

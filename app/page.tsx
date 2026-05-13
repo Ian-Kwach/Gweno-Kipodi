@@ -23,16 +23,31 @@ export default function Home() {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
     window.addEventListener('scroll', handleScroll);
 
+    if (typeof window !== 'undefined') {
+      const stored = window.localStorage.getItem('gwenoSiteInfo');
+      if (stored) {
+        try {
+          setSiteInfo(JSON.parse(stored));
+        } catch (error) {
+          console.error('Unable to parse stored site info', error);
+        }
+      }
+    }
+
     async function loadSiteInfo() {
       try {
         const response = await fetch('/api/site-info');
         const data = await response.json();
         if (data?.data) {
-          setSiteInfo({
+          const updatedSiteInfo = {
             siteTitle: data.data.siteTitle || 'Gweno Kipodi SDA Church',
             homepageHeadline: data.data.homepageHeadline || 'Welcome to Gweno Kipodi SDA Church',
             homepageSubtext: data.data.homepageSubtext || 'A place of worship, community, and spiritual growth.',
-          });
+          };
+          setSiteInfo(updatedSiteInfo);
+          if (typeof window !== 'undefined') {
+            window.localStorage.setItem('gwenoSiteInfo', JSON.stringify(updatedSiteInfo));
+          }
         }
       } catch (error) {
         console.error('Unable to load site info', error);

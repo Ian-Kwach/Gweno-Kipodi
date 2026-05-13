@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '../../../lib/firebaseAdmin';
+import { adminDb, firebaseConfigured } from '../../../lib/firebaseAdmin';
+import { getLocalEvents, addLocalEvent } from '../../../lib/localDb';
 
 const eventsCollection = adminDb?.collection('events');
 
 export async function GET() {
   try {
-    if (!eventsCollection) {
-      return NextResponse.json({ error: 'Firebase not configured' }, { status: 500 });
+    if (!firebaseConfigured || !eventsCollection) {
+      return NextResponse.json({ data: getLocalEvents(), source: 'local' }, { status: 200 });
     }
     const snapshot = await eventsCollection.orderBy('date', 'desc').get();
     const events = snapshot.docs.map(doc => ({
@@ -14,23 +15,25 @@ export async function GET() {
       ...doc.data()
     }));
     return NextResponse.json({ data: events }, { status: 200 });
-  } catch {
-    return NextResponse.json({ error: 'Unable to load events' }, { status: 500 });
+  } catch (error) {
+    console.error('events GET error:', error);
+    return NextResponse.json({ data: getLocalEvents(), source: 'local' }, { status: 200 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    if (!eventsCollection) {
-      return NextResponse.json({ error: 'Firebase not configured' }, { status: 500 });
-    }
     const payload = await request.json();
+    if (!firebaseConfigured || !eventsCollection) {
+      return NextResponse.json({ success: true, data: addLocalEvent(payload), source: 'local' }, { status: 201 });
+    }
     const docRef = await eventsCollection.add({
       ...payload,
       createdAt: new Date(),
     });
     return NextResponse.json({ success: true, id: docRef.id }, { status: 201 });
-  } catch {
-    return NextResponse.json({ error: 'Unable to save event' }, { status: 500 });
+  } catch (error) {
+    console.error('events POST error:', error);
+    return NextResponse.json({ error: 'Unable to save event', detail: String(error) }, { status: 500 });
   }
 }

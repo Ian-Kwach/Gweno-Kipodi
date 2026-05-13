@@ -11,6 +11,49 @@ type LocalUser = {
   updatedAt?: string;
 };
 
+type LocalHymn = {
+  id: string;
+  number: number;
+  title: string;
+  lyrics: {
+    english: string;
+    kiswahili: string;
+    luo: string;
+  };
+  sourceUrl?: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  createdAt: string;
+  updatedAt?: string;
+};
+
+type LocalEvent = {
+  id: string;
+  title: string;
+  date: string;
+  time: string;
+  location: string;
+  description: string;
+  category?: string;
+  createdAt: string;
+  updatedAt?: string;
+};
+
+type LocalCampmeeting = {
+  id: string;
+  title: string;
+  location: string;
+  date: string;
+  duration: string;
+  theme: string;
+  description: string;
+  speakers: string[];
+  capacity: number;
+  registrationOpen: boolean;
+  createdAt: string;
+  updatedAt?: string;
+};
+
 type LocalDb = {
   siteInfo: {
     siteTitle: string;
@@ -21,6 +64,9 @@ type LocalDb = {
     address: string;
   };
   users: LocalUser[];
+  hymns: LocalHymn[];
+  events: LocalEvent[];
+  campmeetings: LocalCampmeeting[];
 };
 
 const dbPath = path.join(process.cwd(), '.gweno-local-db.json');
@@ -35,6 +81,9 @@ const defaultData: LocalDb = {
     address: 'Gweno Kipodi SDA Church, Kisii County, Kenya',
   },
   users: [],
+  hymns: [],
+  events: [],
+  campmeetings: [],
 };
 
 function readDb(): LocalDb {
@@ -116,6 +165,138 @@ export function updateLocalUser(id: string, payload: Partial<LocalUser>) {
 export function deleteLocalUser(id: string) {
   const db = readDb();
   db.users = db.users.filter((user) => user.id !== id);
+  writeDb(db);
+  return true;
+}
+
+// Hymns
+export function getLocalHymns() {
+  return readDb().hymns.sort((a, b) => a.number - b.number);
+}
+
+export function addLocalHymn(payload: Partial<LocalHymn>) {
+  const db = readDb();
+  const newHymn: LocalHymn = {
+    id: payload.id || createId(),
+    number: payload.number || 1,
+    title: payload.title || 'Hymn',
+    lyrics: payload.lyrics || { english: '', kiswahili: '', luo: '' },
+    sourceUrl: payload.sourceUrl,
+    imageUrl: payload.imageUrl,
+    videoUrl: payload.videoUrl,
+    createdAt: new Date().toISOString(),
+  };
+  db.hymns.push(newHymn);
+  writeDb(db);
+  return newHymn;
+}
+
+export function updateLocalHymn(id: string, payload: Partial<LocalHymn>) {
+  const db = readDb();
+  const existing = db.hymns.find((hymn) => hymn.id === id);
+  if (!existing) {
+    throw new Error('Hymn not found');
+  }
+  Object.assign(existing, {
+    ...payload,
+    updatedAt: new Date().toISOString(),
+  });
+  writeDb(db);
+  return existing;
+}
+
+export function deleteLocalHymn(id: string) {
+  const db = readDb();
+  db.hymns = db.hymns.filter((hymn) => hymn.id !== id);
+  writeDb(db);
+  return true;
+}
+
+// Events
+export function getLocalEvents() {
+  return readDb().events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
+export function addLocalEvent(payload: Partial<LocalEvent>) {
+  const db = readDb();
+  const newEvent: LocalEvent = {
+    id: payload.id || createId(),
+    title: payload.title || 'Event',
+    date: payload.date || new Date().toISOString(),
+    time: payload.time || '00:00',
+    location: payload.location || '',
+    description: payload.description || '',
+    category: payload.category,
+    createdAt: new Date().toISOString(),
+  };
+  db.events.push(newEvent);
+  writeDb(db);
+  return newEvent;
+}
+
+export function updateLocalEvent(id: string, payload: Partial<LocalEvent>) {
+  const db = readDb();
+  const existing = db.events.find((event) => event.id === id);
+  if (!existing) {
+    throw new Error('Event not found');
+  }
+  Object.assign(existing, {
+    ...payload,
+    updatedAt: new Date().toISOString(),
+  });
+  writeDb(db);
+  return existing;
+}
+
+export function deleteLocalEvent(id: string) {
+  const db = readDb();
+  db.events = db.events.filter((event) => event.id !== id);
+  writeDb(db);
+  return true;
+}
+
+// Campmeetings
+export function getLocalCampmeetings() {
+  return readDb().campmeetings.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
+export function addLocalCampmeeting(payload: Partial<LocalCampmeeting>) {
+  const db = readDb();
+  const newCampmeeting: LocalCampmeeting = {
+    id: payload.id || createId(),
+    title: payload.title || 'Campmeeting',
+    location: payload.location || '',
+    date: payload.date || new Date().toISOString(),
+    duration: payload.duration || '',
+    theme: payload.theme || '',
+    description: payload.description || '',
+    speakers: payload.speakers || [],
+    capacity: payload.capacity || 0,
+    registrationOpen: payload.registrationOpen ?? true,
+    createdAt: new Date().toISOString(),
+  };
+  db.campmeetings.push(newCampmeeting);
+  writeDb(db);
+  return newCampmeeting;
+}
+
+export function updateLocalCampmeeting(id: string, payload: Partial<LocalCampmeeting>) {
+  const db = readDb();
+  const existing = db.campmeetings.find((cm) => cm.id === id);
+  if (!existing) {
+    throw new Error('Campmeeting not found');
+  }
+  Object.assign(existing, {
+    ...payload,
+    updatedAt: new Date().toISOString(),
+  });
+  writeDb(db);
+  return existing;
+}
+
+export function deleteLocalCampmeeting(id: string) {
+  const db = readDb();
+  db.campmeetings = db.campmeetings.filter((cm) => cm.id !== id);
   writeDb(db);
   return true;
 }

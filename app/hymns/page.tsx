@@ -26,12 +26,23 @@ export default function HymnsPage() {
   const [selectedHymn, setSelectedHymn] = useState<Hymn | null>(null);
 
   useEffect(() => {
+    const storedHymns = typeof window !== 'undefined' ? window.localStorage.getItem('gwenoHymns') : null;
+    if (storedHymns) {
+      try {
+        setHymns(JSON.parse(storedHymns));
+      } catch (error) {
+        console.error('Unable to parse stored hymns', error);
+      }
+    }
+
     async function loadHymns() {
       try {
         const response = await fetch('/api/hymns');
         const data = await response.json();
-        if (data?.data) {
-          setHymns(data.data);
+        const fetchedHymns = data?.data || [];
+        setHymns(fetchedHymns);
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('gwenoHymns', JSON.stringify(fetchedHymns));
         }
       } catch (error) {
         console.error('Error loading hymns:', error);
